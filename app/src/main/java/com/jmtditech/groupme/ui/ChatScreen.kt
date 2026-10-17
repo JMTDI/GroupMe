@@ -53,6 +53,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -90,6 +99,10 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val newestFocus = remember { FocusRequester() }
+    // For D-pad scrolling inside messages taller than the screen.
+    val bubbleCoords = remember { mutableMapOf<String, LayoutCoordinates>() }
+    val focusedId = remember { arrayOfNulls<String>(1) }
+    val listCoords = remember { arrayOfNulls<LayoutCoordinates>(1) }
     var focusedOnce by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { if (it != null) image = it }
 
@@ -158,7 +171,34 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
             LazyColumn(
                 state = listState,
                 reverseLayout = true,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .onGloballyPositioned { listCoords[0] = it }
+                    .onPreviewKeyEvent { ev ->
+                        // If the focused message extends past the visible area, Up/Down scroll within
+                        // it; once its edge is on screen, focus moves to the neighbouring message.
+                        if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val down = when (ev.key) {
+                            Key.DirectionDown -> true
+                            Key.DirectionUp -> false
+                            else -> return@onPreviewKeyEvent false
+                        }
+                        val c = focusedId[0]?.let { bubbleCoords[it] }?.takeIf { it.isAttached }
+                            ?: return@onPreviewKeyEvent false
+                        val l = listCoords[0]?.takeIf { it.isAttached } ?: return@onPreviewKeyEvent false
+                        val b = c.boundsInWindow()
+                        val v = l.boundsInWindow()
+                        val maxStep = v.height * 0.5f
+                        if (down && b.bottom > v.bottom + 4f) {
+                            // Reverse layout: a negative delta moves the view towards newer (lower) content.
+                            listState.dispatchRawDelta(-minOf(b.bottom - v.bottom, maxStep))
+                            true
+                        } else if (!down && b.top < v.top - 4f) {
+                            listState.dispatchRawDelta(minOf(v.top - b.top, maxStep))
+                            true
+                        } else false
+                    },
                 contentPadding = PaddingValues(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -170,6 +210,11 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
                         myId = vm.myId,
                         modifier = if (m.id == messages.firstOrNull()?.id) Modifier.focusRequester(newestFocus) else Modifier,
                         onClick = { selected = m },
+                        onFocused = { focusedId[0] = m.id },
+                        onPlaced = { c ->
+                            if (bubbleCoords.size > 200) bubbleCoords.entries.removeAll { !it.value.isAttached }
+                            bubbleCoords[m.id] = c
+                        },
                     )
                 }
                 if (loadingOlder) {
@@ -259,6 +304,8 @@ private fun MessageBubble(
     myId: String,
     modifier: Modifier,
     onClick: () -> Unit,
+    onFocused: () -> Unit,
+    onPlaced: (LayoutCoordinates) -> Unit,
 ) {
     val ctx = LocalContext.current
     val compact = LocalCompact.current
@@ -298,7 +345,9 @@ private fun MessageBubble(
                     if (mine) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.surfaceVariant
                 )
+                .onGloballyPositioned(onPlaced)
                 .focusRing(shape)
+                .onFocusChanged { if (it.hasFocus) onFocused() }
                 .clickable(onClick = onClick)
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
