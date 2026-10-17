@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>GroupMe sign-in</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { margin: 0; padding: 16px; max-width: 520px; margin-inline: auto; line-height: 1.4; }
+  h1 { font-size: 1.2rem; }
+  a.btn, button { display: inline-block; padding: 10px 14px; border-radius: 8px; border: 0;
+    background: #00AFF0; color: #fff; font-size: 1rem; text-decoration: none; cursor: pointer; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; font-size: .9rem; margin: 6px 0 10px; }
+  .muted { opacity: .7; font-size: .85rem; }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<h1>GroupMe sign-in</h1>
+
+<div id="ok" hidden>
+  <p>Signed in. Opening the app…</p>
+  <p><a id="open" class="btn" href="#">Open GroupMe Client</a></p>
+  <p class="muted">If the app doesn't open, copy this token and paste it on the app's login screen:</p>
+  <input id="tok" readonly>
+  <button id="copy" type="button">Copy token</button>
+</div>
+
+<div id="none" hidden>
+  <p>No access token found in this link. Start sign-in again from the app.</p>
+</div>
+
+<p class="muted">This page runs entirely in your browser; the token is not sent anywhere.</p>
+
+<script>
+(function () {
+  var token = new URLSearchParams(location.search).get("access_token");
+  if (!token) { document.getElementById("none").hidden = false; return; }
+
+  // Drop the token from the address bar / history once read.
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+
+  var link = "groupmeclient://oauth?access_token=" + encodeURIComponent(token);
+  document.getElementById("ok").hidden = false;
+  document.getElementById("open").href = link;
+  var box = document.getElementById("tok");
+  box.value = token;
+  document.getElementById("copy").onclick = function () {
+    box.select();
+    try { navigator.clipboard.writeText(token); } catch (e) { document.execCommand("copy"); }
+  };
+  setTimeout(function () { location.href = link; }, 300);
+})();
+</script>
+</body>
+</html>

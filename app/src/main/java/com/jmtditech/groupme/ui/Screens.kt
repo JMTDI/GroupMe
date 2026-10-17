@@ -110,7 +110,7 @@ fun LoginScreen(vm: MainViewModel) {
 
         Text("Or sign in with the browser (OAuth)", style = MaterialTheme.typography.titleSmall)
         Text(
-            "Create an app at dev.groupme.com/applications with callback groupmeclient://oauth, then enter its Client ID.",
+            "GroupMe needs an HTTPS callback page that forwards to this app (see README), then enter the Client ID.",
             style = MaterialTheme.typography.bodySmall,
         )
         CompactField(

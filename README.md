@@ -31,8 +31,18 @@ Built for phones with no touchscreen and screens as small as 240x320:
 Requires JDK 17, compileSdk 34, minSdk 26.
 
 ## OAuth (optional)
-Create an application at https://dev.groupme.com/applications with callback URL `groupmeclient://oauth`,
-then paste the Client ID on the login screen. The token-paste login needs no setup.
+GroupMe only accepts an HTTPS callback URL, so a custom-scheme callback like `groupmeclient://oauth` is rejected.
+The repo includes a small forwarding page, `docs/oauth/index.html`: GroupMe sends the browser there with
+`?access_token=...`, and the page hands the token to the app via `groupmeclient://oauth`. If the app can't be opened
+it shows the token so you can paste it manually.
+
+1. Enable GitHub Pages: repo Settings -> Pages -> Deploy from a branch -> `main` / `/docs` (the repo must be public on a free plan).
+2. Callback URL for the GroupMe application at https://dev.groupme.com/applications:
+   `https://jmtdi.github.io/GroupMe/oauth/`
+3. Paste the application's Client ID on the app's login screen and tap "Sign in with GroupMe".
+
+The page never sends the token anywhere; it is read in the browser and removed from the address bar. Token paste
+(no setup) still works and is easier on phones without a good browser.
 
 ## Notes and caveats
 This was written without being compiled or run, so expect to fix a few build errors on the first build.
