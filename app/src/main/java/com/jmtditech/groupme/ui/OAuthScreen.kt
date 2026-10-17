@@ -61,8 +61,16 @@ fun OAuthWebView(url: String, onToken: (String) -> Unit, onClose: () -> Unit) {
                     isFocusable = true
                     isFocusableInTouchMode = true
                     webViewClient = object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                            tryCapture(request.url)
+                        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                            val u = request.url
+                            if (tryCapture(u)) return true
+                            val host = u.host.orEmpty()
+                            if (u.scheme == "http" && (host == "groupme.com" || host.endsWith(".groupme.com"))) {
+                                view.loadUrl(u.buildUpon().scheme("https").build().toString())
+                                return true
+                            }
+                            return false
+                        }
 
                         override fun onPageStarted(view: WebView, pageUrl: String?, favicon: Bitmap?) {
                             loading = true
@@ -72,6 +80,14 @@ fun OAuthWebView(url: String, onToken: (String) -> Unit, onClose: () -> Unit) {
 
                         override fun onPageFinished(view: WebView, pageUrl: String?) {
                             loading = false
+                        }
+
+                        override fun onReceivedError(
+                            view: WebView,
+                            request: WebResourceRequest,
+                            error: android.webkit.WebResourceError,
+                        ) {
+                            if (request.isForMainFrame) loading = false
                         }
                     }
                     loadUrl(url)

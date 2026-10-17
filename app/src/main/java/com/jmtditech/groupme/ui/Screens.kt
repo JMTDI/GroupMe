@@ -66,14 +66,11 @@ fun LoginScreen(vm: MainViewModel) {
     val ctx = LocalContext.current
     val compact = LocalCompact.current
     var token by rememberSaveable { mutableStateOf("") }
-    val savedClientId by vm.clientId.collectAsStateWithLifecycle()
-    var clientId by rememberSaveable(savedClientId) { mutableStateOf(savedClientId) }
     val busy by vm.signingIn.collectAsStateWithLifecycle()
     val error by vm.loginError.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
     var oauthUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    val embeddedId = BuildConfig.GROUPME_CLIENT_ID
-    val effectiveId = embeddedId.ifBlank { clientId.trim() }
+    val clientId = BuildConfig.GROUPME_CLIENT_ID
     LaunchedEffect(Unit) { delay(150); runCatching { first.requestFocus() } }
 
     oauthUrl?.let { u ->
@@ -93,7 +90,7 @@ fun LoginScreen(vm: MainViewModel) {
             .padding(if (compact) 8.dp else 24.dp),
         verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 12.dp),
     ) {
-        Text("GroupMe Client", style = MaterialTheme.typography.titleLarge)
+        Text("GroupMe", style = MaterialTheme.typography.titleLarge)
         Text(
             "Sign in with an access token from dev.groupme.com (shown under \"Access Token\").",
             style = MaterialTheme.typography.bodySmall,
@@ -119,31 +116,18 @@ fun LoginScreen(vm: MainViewModel) {
             primary = false,
         )
 
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
-
-        Text("Or sign in with GroupMe (OAuth)", style = MaterialTheme.typography.titleSmall)
-        if (embeddedId.isBlank()) {
-            Text(
-                "Enter your GroupMe application Client ID. Its callback URL can be any HTTPS URL; the app catches the redirect.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            CompactField(
-                value = clientId,
-                onValueChange = { clientId = it },
-                hint = "Client ID",
+        // The OAuth Client ID is built into the app (GROUPME_CLIENT_ID); there is nothing to type here.
+        if (clientId.isNotBlank()) {
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            PadButton(
+                "Sign in with GroupMe",
+                onClick = {
+                    oauthUrl = "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(clientId)
+                },
                 modifier = Modifier.fillMaxWidth(),
+                primary = false,
             )
         }
-        PadButton(
-            "Sign in with GroupMe",
-            onClick = {
-                if (embeddedId.isBlank()) vm.saveClientId(clientId)
-                oauthUrl = "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(effectiveId)
-            },
-            enabled = effectiveId.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-            primary = false,
-        )
     }
 }
 

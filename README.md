@@ -1,4 +1,4 @@
-# GroupMe Client (native Android)
+# GroupMe (native Android)
 
 A native Kotlin + Jetpack Compose client for GroupMe. No WebView: it talks to GroupMe's REST API
 and its Faye push service directly.
@@ -37,10 +37,9 @@ callback page is never loaded.
 
 1. Create an application at https://dev.groupme.com/applications. GroupMe requires an HTTPS callback URL, but the
    app intercepts it, so any HTTPS URL works, for example `https://jmtdi.github.io/GroupMe/oauth/`.
-2. Give the app the application's Client ID (a public value, not a secret). Either paste it on the login screen, or
-   build it in: set `GROUPME_CLIENT_ID` as an env var or gradle property (`-PGROUPME_CLIENT_ID=...` or
+2. Build the application's Client ID into the app (a public value, not a secret; there is no field to type it in): set `GROUPME_CLIENT_ID` as an env var or gradle property (`-PGROUPME_CLIENT_ID=...` or
    `~/.gradle/gradle.properties`), or for GitHub Actions add a repository *variable* named `GROUPME_CLIENT_ID`
-   (Settings -> Secrets and variables -> Actions -> Variables). With a built-in ID the login screen hides the field.
+   (Settings -> Secrets and variables -> Actions -> Variables). The "Sign in with GroupMe" button only appears when an ID is built in.
 3. Tap "Sign in with GroupMe", log in inside the app; Back steps back through pages and then closes the window.
 
 `docs/oauth/index.html` is an optional forwarding page (opens the app via `groupmeclient://oauth`) for use with an

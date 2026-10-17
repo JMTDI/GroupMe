@@ -49,7 +49,7 @@ object Notifier {
         )
         return NotificationCompat.Builder(ctx, CH_SERVICE)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("GroupMe Client")
+            .setContentTitle("GroupMe")
             .setContentText("Listening for new messages")
             .setContentIntent(open)
             .setOngoing(true)
