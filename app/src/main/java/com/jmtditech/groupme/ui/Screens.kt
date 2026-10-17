@@ -69,15 +69,17 @@ fun LoginScreen(vm: MainViewModel) {
     val busy by vm.signingIn.collectAsStateWithLifecycle()
     val error by vm.loginError.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
-    var oauthUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var pageUrl by rememberSaveable { mutableStateOf<String?>(null) }
     val clientId = BuildConfig.GROUPME_CLIENT_ID
     LaunchedEffect(Unit) { delay(150); runCatching { first.requestFocus() } }
 
-    oauthUrl?.let { u ->
-        OAuthWebView(
+    pageUrl?.let { u ->
+        val isOAuth = u.startsWith("https://oauth.groupme.com/")
+        InAppWebView(
+            title = if (isOAuth) "Sign in with GroupMe" else "dev.groupme.com",
             url = u,
-            onToken = { oauthUrl = null; vm.signIn(it) },
-            onClose = { oauthUrl = null },
+            onClose = { pageUrl = null },
+            onToken = if (isOAuth) ({ token: String -> pageUrl = null; vm.signIn(token) }) else null,
         )
         return
     }
@@ -110,8 +112,8 @@ fun LoginScreen(vm: MainViewModel) {
         )
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         PadButton(
-            "Open dev.groupme.com",
-            onClick = { openUrl(ctx, "https://dev.groupme.com/") },
+            "Get token (dev.groupme.com)",
+            onClick = { pageUrl = "https://dev.groupme.com/" },
             modifier = Modifier.fillMaxWidth(),
             primary = false,
         )
@@ -122,7 +124,7 @@ fun LoginScreen(vm: MainViewModel) {
             PadButton(
                 "Sign in with GroupMe",
                 onClick = {
-                    oauthUrl = "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(clientId)
+                    pageUrl = "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(clientId)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 primary = false,

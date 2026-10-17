@@ -31,7 +31,7 @@ Built for phones with no touchscreen and screens as small as 240x320:
 Requires JDK 17, compileSdk 34, minSdk 26.
 
 ## OAuth (optional)
-"Sign in with GroupMe" opens GroupMe's authorize page in an in-app WebView (not an external browser). When GroupMe
+"Sign in with GroupMe" opens GroupMe's authorize page in an in-app WebView (the "Get token" button opens dev.groupme.com the same way) (not an external browser). When GroupMe
 redirects to your callback URL with `?access_token=...`, the app catches that redirect itself and signs in; the
 callback page is never loaded.
 
