@@ -60,7 +60,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -187,15 +187,19 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
                         val c = focusedId[0]?.let { bubbleCoords[it] }?.takeIf { it.isAttached }
                             ?: return@onPreviewKeyEvent false
                         val l = listCoords[0]?.takeIf { it.isAttached } ?: return@onPreviewKeyEvent false
-                        val b = c.boundsInWindow()
-                        val v = l.boundsInWindow()
-                        val maxStep = v.height * 0.5f
-                        if (down && b.bottom > v.bottom + 4f) {
+                        // positionInWindow + size gives the UNclipped bounds (boundsInWindow clips to the
+                        // visible area, which hid the off-screen part of tall messages).
+                        val bTop = c.positionInWindow().y
+                        val bBottom = bTop + c.size.height
+                        val vTop = l.positionInWindow().y
+                        val vBottom = vTop + l.size.height
+                        val maxStep = (vBottom - vTop) * 0.5f
+                        if (down && bBottom > vBottom + 4f) {
                             // Reverse layout: a negative delta moves the view towards newer (lower) content.
-                            listState.dispatchRawDelta(-minOf(b.bottom - v.bottom, maxStep))
+                            listState.dispatchRawDelta(-minOf(bBottom - vBottom, maxStep))
                             true
-                        } else if (!down && b.top < v.top - 4f) {
-                            listState.dispatchRawDelta(minOf(v.top - b.top, maxStep))
+                        } else if (!down && bTop < vTop - 4f) {
+                            listState.dispatchRawDelta(minOf(vTop - bTop, maxStep))
                             true
                         } else false
                     },

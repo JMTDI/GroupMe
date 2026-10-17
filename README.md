@@ -46,6 +46,10 @@ This was written without being compiled or run, so expect to fix a few build err
   `KEY_ALIAS`, `KEY_PASSWORD`. The release is then signed with your keystore. Without the
   secrets the release contains the debug-signed APK.
 
+## Custom CA certificate
+`res/raw/compass_tls_certificate.crt` is trusted in addition to the system CAs (see `res/xml/network_security_config.xml`),
+for networks that inspect TLS. To use a different certificate, replace that file (keep the name) or edit the config.
+
 ## Layout
 - `data/` Retrofit API, Room cache, DataStore prefs, `Repository`, `FayeClient`
 - `service/` `PushService`, `Notifier`, notification action and boot receivers
