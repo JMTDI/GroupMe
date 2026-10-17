@@ -6,6 +6,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Public OAuth Client ID (not a secret). Set GROUPME_CLIENT_ID as an env var or gradle property.
+val groupmeClientId: String = System.getenv("GROUPME_CLIENT_ID")?.takeIf { it.isNotBlank() }
+    ?: providers.gradleProperty("GROUPME_CLIENT_ID").orNull
+    ?: ""
+
 android {
     namespace = "com.jmtditech.groupme"
     compileSdk = 34
@@ -16,6 +21,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "GROUPME_CLIENT_ID", "\"$groupmeClientId\"")
     }
 
     signingConfigs {
@@ -44,7 +50,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 

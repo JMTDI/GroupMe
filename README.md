@@ -39,7 +39,11 @@ it shows the token so you can paste it manually.
 1. Enable GitHub Pages: repo Settings -> Pages -> Deploy from a branch -> `main` / `/docs` (the repo must be public on a free plan).
 2. Callback URL for the GroupMe application at https://dev.groupme.com/applications:
    `https://jmtdi.github.io/GroupMe/oauth/`
-3. Paste the application's Client ID on the app's login screen and tap "Sign in with GroupMe".
+3. Give the app the application's Client ID. Either paste it on the login screen, or build it in (it is a public value,
+   not a secret): set `GROUPME_CLIENT_ID` as an env var or gradle property (`-PGROUPME_CLIENT_ID=...` or
+   `~/.gradle/gradle.properties`), or for GitHub Actions add a repository *variable* named `GROUPME_CLIENT_ID`
+   (Settings -> Secrets and variables -> Actions -> Variables). With a built-in ID the login screen hides the field.
+   Then tap "Sign in with GroupMe".
 
 The page never sends the token anywhere; it is read in the browser and removed from the address bar. Token paste
 (no setup) still works and is easier on phones without a good browser.

@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jmtditech.groupme.BuildConfig
 import com.jmtditech.groupme.data.ConversationEntity
 import kotlinx.coroutines.delay
 
@@ -70,6 +71,8 @@ fun LoginScreen(vm: MainViewModel) {
     val busy by vm.signingIn.collectAsStateWithLifecycle()
     val error by vm.loginError.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
+    val embeddedId = BuildConfig.GROUPME_CLIENT_ID
+    val effectiveId = embeddedId.ifBlank { clientId.trim() }
     LaunchedEffect(Unit) { delay(150); runCatching { first.requestFocus() } }
 
     Column(
@@ -109,23 +112,25 @@ fun LoginScreen(vm: MainViewModel) {
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
 
         Text("Or sign in with the browser (OAuth)", style = MaterialTheme.typography.titleSmall)
-        Text(
-            "GroupMe needs an HTTPS callback page that forwards to this app (see README), then enter the Client ID.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        CompactField(
-            value = clientId,
-            onValueChange = { clientId = it },
-            hint = "Client ID",
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (embeddedId.isBlank()) {
+            Text(
+                "GroupMe needs an HTTPS callback page that forwards to this app (see README), then enter the Client ID.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            CompactField(
+                value = clientId,
+                onValueChange = { clientId = it },
+                hint = "Client ID",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         PadButton(
             "Sign in with GroupMe",
             onClick = {
-                vm.saveClientId(clientId)
-                openUrl(ctx, "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(clientId.trim()))
+                if (embeddedId.isBlank()) vm.saveClientId(clientId)
+                openUrl(ctx, "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(effectiveId))
             },
-            enabled = clientId.isNotBlank(),
+            enabled = effectiveId.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
             primary = false,
         )
