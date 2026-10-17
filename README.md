@@ -31,22 +31,20 @@ Built for phones with no touchscreen and screens as small as 240x320:
 Requires JDK 17, compileSdk 34, minSdk 26.
 
 ## OAuth (optional)
-GroupMe only accepts an HTTPS callback URL, so a custom-scheme callback like `groupmeclient://oauth` is rejected.
-The repo includes a small forwarding page, `docs/oauth/index.html`: GroupMe sends the browser there with
-`?access_token=...`, and the page hands the token to the app via `groupmeclient://oauth`. If the app can't be opened
-it shows the token so you can paste it manually.
+"Sign in with GroupMe" opens GroupMe's authorize page in an in-app WebView (not an external browser). When GroupMe
+redirects to your callback URL with `?access_token=...`, the app catches that redirect itself and signs in; the
+callback page is never loaded.
 
-1. Enable GitHub Pages: repo Settings -> Pages -> Deploy from a branch -> `main` / `/docs` (the repo must be public on a free plan).
-2. Callback URL for the GroupMe application at https://dev.groupme.com/applications:
-   `https://jmtdi.github.io/GroupMe/oauth/`
-3. Give the app the application's Client ID. Either paste it on the login screen, or build it in (it is a public value,
-   not a secret): set `GROUPME_CLIENT_ID` as an env var or gradle property (`-PGROUPME_CLIENT_ID=...` or
+1. Create an application at https://dev.groupme.com/applications. GroupMe requires an HTTPS callback URL, but the
+   app intercepts it, so any HTTPS URL works, for example `https://jmtdi.github.io/GroupMe/oauth/`.
+2. Give the app the application's Client ID (a public value, not a secret). Either paste it on the login screen, or
+   build it in: set `GROUPME_CLIENT_ID` as an env var or gradle property (`-PGROUPME_CLIENT_ID=...` or
    `~/.gradle/gradle.properties`), or for GitHub Actions add a repository *variable* named `GROUPME_CLIENT_ID`
    (Settings -> Secrets and variables -> Actions -> Variables). With a built-in ID the login screen hides the field.
-   Then tap "Sign in with GroupMe".
+3. Tap "Sign in with GroupMe", log in inside the app; Back steps back through pages and then closes the window.
 
-The page never sends the token anywhere; it is read in the browser and removed from the address bar. Token paste
-(no setup) still works and is easier on phones without a good browser.
+`docs/oauth/index.html` is an optional forwarding page (opens the app via `groupmeclient://oauth`) for use with an
+external browser; the WebView flow does not need it. Token paste (no setup) always works.
 
 ## Notes and caveats
 This was written without being compiled or run, so expect to fix a few build errors on the first build.

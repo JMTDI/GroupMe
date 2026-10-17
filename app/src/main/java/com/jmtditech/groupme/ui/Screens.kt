@@ -71,9 +71,19 @@ fun LoginScreen(vm: MainViewModel) {
     val busy by vm.signingIn.collectAsStateWithLifecycle()
     val error by vm.loginError.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
+    var oauthUrl by rememberSaveable { mutableStateOf<String?>(null) }
     val embeddedId = BuildConfig.GROUPME_CLIENT_ID
     val effectiveId = embeddedId.ifBlank { clientId.trim() }
     LaunchedEffect(Unit) { delay(150); runCatching { first.requestFocus() } }
+
+    oauthUrl?.let { u ->
+        OAuthWebView(
+            url = u,
+            onToken = { oauthUrl = null; vm.signIn(it) },
+            onClose = { oauthUrl = null },
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -111,10 +121,10 @@ fun LoginScreen(vm: MainViewModel) {
 
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
 
-        Text("Or sign in with the browser (OAuth)", style = MaterialTheme.typography.titleSmall)
+        Text("Or sign in with GroupMe (OAuth)", style = MaterialTheme.typography.titleSmall)
         if (embeddedId.isBlank()) {
             Text(
-                "GroupMe needs an HTTPS callback page that forwards to this app (see README), then enter the Client ID.",
+                "Enter your GroupMe application Client ID. Its callback URL can be any HTTPS URL; the app catches the redirect.",
                 style = MaterialTheme.typography.bodySmall,
             )
             CompactField(
@@ -128,7 +138,7 @@ fun LoginScreen(vm: MainViewModel) {
             "Sign in with GroupMe",
             onClick = {
                 if (embeddedId.isBlank()) vm.saveClientId(clientId)
-                openUrl(ctx, "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(effectiveId))
+                oauthUrl = "https://oauth.groupme.com/oauth/authorize?client_id=" + android.net.Uri.encode(effectiveId)
             },
             enabled = effectiveId.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
