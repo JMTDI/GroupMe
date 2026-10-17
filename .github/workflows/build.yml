@@ -44,8 +44,14 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          GROUPME_CLIENT_ID: ${{ vars.GROUPME_CLIENT_ID }}
+          # Works whether it was added as a repository variable or as a secret.
+          GROUPME_CLIENT_ID: ${{ vars.GROUPME_CLIENT_ID || secrets.GROUPME_CLIENT_ID }}
         run: |
+          if [ -n "$GROUPME_CLIENT_ID" ]; then
+            echo "GROUPME_CLIENT_ID is set (${#GROUPME_CLIENT_ID} characters): OAuth sign-in will be included."
+          else
+            echo "::warning::GROUPME_CLIENT_ID is empty: the build will have no 'Sign in with GroupMe' button. Add it under Settings > Secrets and variables > Actions (variable or secret)."
+          fi
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             export KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
