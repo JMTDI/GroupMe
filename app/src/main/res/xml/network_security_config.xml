@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- System CAs plus the network's TLS-inspection CA (compass_TLS_Certificate.crt). Applies to this app only. -->
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/compass_tls_certificate" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

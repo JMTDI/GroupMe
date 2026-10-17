@@ -26,7 +26,7 @@ Built for phones with no touchscreen and screens as small as 240x320:
 **Android Studio:** open this folder. If the Gradle wrapper jar is missing, run `gradle wrapper --gradle-version 8.9` once
 (or let Studio use its bundled Gradle). Run the `app` configuration.
 
-**GitHub Actions:** push to GitHub; `.github/workflows/build.yml` builds `app-debug.apk` and uploads it as an artifact.
+**GitHub Actions:** the workflow is manual only. Run "Build and Release" from the Actions tab (or `gh workflow run build.yml -f tag=v1.0.0`); it builds the APK and publishes a GitHub release with auto-generated notes.
 
 Requires JDK 17, compileSdk 34, minSdk 26.
 
@@ -43,8 +43,12 @@ This was written without being compiled or run, so expect to fix a few build err
 - Unread badges count messages received while the service was connected or polled, not server-side read state.
 - Some phones kill background services; exclude the app from battery optimisation (Settings screen has a shortcut).
 - Signed release builds: add repo secrets `KEYSTORE_BASE64` (base64 keystore with private key), `KEYSTORE_PASSWORD`,
-  `KEY_ALIAS`, `KEY_PASSWORD`. The workflow then also builds and uploads a signed `app-release.apk`. Without the
-  secrets only the debug APK is built.
+  `KEY_ALIAS`, `KEY_PASSWORD`. The release is then signed with your keystore. Without the
+  secrets the release contains the debug-signed APK.
+
+## Custom CA certificate
+`res/raw/compass_tls_certificate.crt` is trusted in addition to the system CAs (see `res/xml/network_security_config.xml`),
+for networks that inspect TLS. To use a different certificate, replace that file (keep the name) or edit the config.
 
 ## Layout
 - `data/` Retrofit API, Room cache, DataStore prefs, `Repository`, `FayeClient`
