@@ -41,7 +41,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -199,6 +208,11 @@ fun PadButton(
     }
 }
 
+/**
+ * Single-line text field built for D-pad phones. Left/Right move the cursor (and only leave the field at the
+ * very start/end of the text), Up/Down always move focus out instead of being swallowed, and Enter/OK runs
+ * [onImeAction] (send). [onUp]/[onDown] may handle the move themselves and return true.
+ */
 @Composable
 fun CompactField(
     value: String,
@@ -208,12 +222,31 @@ fun CompactField(
     password: Boolean = false,
     imeAction: ImeAction = ImeAction.Default,
     onImeAction: (() -> Unit)? = null,
+    onUp: (() -> Boolean)? = null,
+    onDown: (() -> Boolean)? = null,
 ) {
     val shape = RoundedCornerShape(8.dp)
     val scheme = MaterialTheme.colorScheme
+    val focusManager = LocalFocusManager.current
+
+    // The text is owned by the caller; selection/composition live here so we can move the cursor ourselves.
+    var selection by remember { mutableStateOf(TextRange(value.length)) }
+    var composition by remember { mutableStateOf<TextRange?>(null) }
+    val len = value.length
+    val sel = TextRange(selection.start.coerceIn(0, len), selection.end.coerceIn(0, len))
+    val tfv = TextFieldValue(
+        text = value,
+        selection = sel,
+        composition = composition?.takeIf { it.end <= len },
+    )
+
     BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = tfv,
+        onValueChange = {
+            selection = it.selection
+            composition = it.composition
+            if (it.text != value) onValueChange(it.text)
+        },
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = scheme.onSurface),
         cursorBrush = SolidColor(scheme.primary),
@@ -223,7 +256,35 @@ fun CompactField(
         modifier = modifier
             .heightIn(min = 32.dp)
             .border(1.dp, scheme.outline, shape)
-            .focusRing(shape),
+            .focusRing(shape)
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    Key.DirectionLeft -> {
+                        if (!sel.collapsed) { selection = TextRange(sel.min); composition = null }
+                        else if (sel.start > 0) { selection = TextRange(sel.start - 1); composition = null }
+                        else focusManager.moveFocus(FocusDirection.Left)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        if (!sel.collapsed) { selection = TextRange(sel.max); composition = null }
+                        else if (sel.start < len) { selection = TextRange(sel.start + 1); composition = null }
+                        else focusManager.moveFocus(FocusDirection.Right)
+                        true
+                    }
+                    Key.DirectionUp -> {
+                        if (onUp?.invoke() != true) focusManager.moveFocus(FocusDirection.Up)
+                        true
+                    }
+                    Key.DirectionDown -> {
+                        if (onDown?.invoke() != true) focusManager.moveFocus(FocusDirection.Down)
+                        true
+                    }
+                    Key.Enter, Key.NumPadEnter, Key.DirectionCenter ->
+                        if (onImeAction != null) { onImeAction(); true } else false
+                    else -> false
+                }
+            },
         decorationBox = { inner ->
             Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), contentAlignment = Alignment.CenterStart) {
                 if (value.isEmpty()) {

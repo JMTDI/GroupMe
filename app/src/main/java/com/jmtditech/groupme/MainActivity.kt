@@ -2,6 +2,7 @@ package com.jmtditech.groupme
 
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -46,6 +47,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         vm.handleIntent(intent)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (AppState.keyInterceptor?.invoke(event) == true) return true
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onStart() {

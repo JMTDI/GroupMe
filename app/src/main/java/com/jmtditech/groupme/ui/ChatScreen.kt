@@ -46,6 +46,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,6 +80,7 @@ import com.jmtditech.groupme.data.MessageEntity
 import com.jmtditech.groupme.data.Repository
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChatScreen(convKey: String, onBack: () -> Unit) {
@@ -99,6 +101,8 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val newestFocus = remember { FocusRequester() }
+    val sendFocus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
     // For D-pad scrolling inside messages taller than the screen.
     val bubbleCoords = remember { mutableMapOf<String, LayoutCoordinates>() }
     val focusedId = remember { arrayOfNulls<String>(1) }
@@ -255,6 +259,17 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
                     hint = "Message",
                     imeAction = ImeAction.Send,
                     onImeAction = { doSend() },
+                    // Up: jump back to the newest message so the chat can be scrolled again.
+                    onUp = {
+                        scope.launch {
+                            listState.scrollToItem(0)
+                            delay(60)
+                            runCatching { newestFocus.requestFocus() }
+                        }
+                        true
+                    },
+                    // Down: go to the Send button.
+                    onDown = { runCatching { sendFocus.requestFocus() }.isSuccess },
                     modifier = Modifier.weight(1f),
                 )
                 if (sending) {
@@ -264,6 +279,7 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
                 } else {
                     PadIcon(
                         Icons.AutoMirrored.Filled.Send, "Send", { doSend() },
+                        modifier = Modifier.focusRequester(sendFocus),
                         enabled = text.isNotBlank() || image != null,
                     )
                 }

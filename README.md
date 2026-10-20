@@ -22,6 +22,13 @@ Built for phones with no touchscreen and screens as small as 240x320:
 - The manifest declares the touchscreen as not required.
 - Browser sign-in and image viewing need a browser app on the phone; token sign-in does not.
 
+### Keys on D-pad phones
+- Message box: Left/Right move the cursor (at the very start/end they move to the attach/Send buttons), Up jumps to
+  the newest message, Down goes to Send, OK/Enter sends.
+- In-app browser (sign-in, dev.groupme.com): Up/Down/Left/Right jump between links, buttons and fields (highlighted
+  in orange) and scroll the page when nothing is left in that direction; OK clicks; Back goes back/closes. If a
+  consent page has Allow/Deny buttons, matching buttons appear at the bottom (press Down at the end of the page).
+
 ## Build
 **Android Studio:** open this folder. If the Gradle wrapper jar is missing, run `gradle wrapper --gradle-version 8.9` once
 (or let Studio use its bundled Gradle). Run the `app` configuration.
