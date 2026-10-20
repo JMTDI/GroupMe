@@ -26,6 +26,14 @@ data class ConversationEntity(
     val unread: Int = 0,
 )
 
+/** People you can start a direct chat with: members of your groups and your existing chats. */
+@Entity(tableName = "contacts")
+data class ContactEntity(
+    @PrimaryKey val userId: String,
+    val name: String,
+    val imageUrl: String?,
+)
+
 @Entity(tableName = "messages", indices = [Index("convKey"), Index("createdAt")])
 data class MessageEntity(
     @PrimaryKey val id: String,
@@ -75,6 +83,15 @@ interface ConversationDao {
 }
 
 @Dao
+interface ContactDao {
+    @Query("SELECT * FROM contacts ORDER BY name COLLATE NOCASE")
+    fun observeAll(): Flow<List<ContactEntity>>
+
+    @Upsert
+    suspend fun upsertAll(list: List<ContactEntity>)
+}
+
+@Dao
 interface MessageDao {
     @Query("SELECT * FROM messages WHERE convKey = :key ORDER BY createdAt DESC, id DESC")
     fun observeDesc(key: String): Flow<List<MessageEntity>>
@@ -101,8 +118,9 @@ interface MessageDao {
     suspend fun search(q: String): List<MessageEntity>
 }
 
-@Database(entities = [ConversationEntity::class, MessageEntity::class], version = 1, exportSchema = false)
+@Database(entities = [ConversationEntity::class, MessageEntity::class, ContactEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun conversations(): ConversationDao
     abstract fun messages(): MessageDao
+    abstract fun contacts(): ContactDao
 }

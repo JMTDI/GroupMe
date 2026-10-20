@@ -37,6 +37,14 @@ Built for phones with no touchscreen and screens as small as 240x320:
 
 Requires JDK 17, compileSdk 34, minSdk 26.
 
+## New chats and groups
+The **+** button in the chat list opens "New chat", like GroupMe's own:
+- **Find contacts** searches people from your groups and chats; pick one to start a direct message (the chat is created
+  when you send the first message).
+- **New group** creates a group (name, optional description), and adds people from your contacts and/or by phone
+  number or email.
+GroupMe's public API has no Announcement, Event or Vanishing group types, so those can't be created from here.
+
 ## OAuth (optional)
 "Sign in with GroupMe" opens GroupMe's authorize page in an in-app WebView (the "Get token" button opens dev.groupme.com the same way) (not an external browser). When GroupMe
 redirects to your callback URL with `?access_token=...`, the app catches that redirect itself and signs in; the

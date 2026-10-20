@@ -87,6 +87,14 @@ class Repository(
             )
         }
         db.conversations().upsertAll(list)
+        val me = myId
+        val contacts = (
+            chats.map { ContactEntity(it.otherUser.id, it.otherUser.name.orEmpty(), it.otherUser.avatarUrl ?: it.otherUser.imageUrl) } +
+                groups.flatMap { g -> g.members.map { ContactEntity(it.userId, it.nickname.orEmpty(), it.imageUrl) } }
+            )
+            .filter { it.userId.isNotBlank() && it.userId != me }
+            .distinctBy { it.userId }
+        db.contacts().upsertAll(contacts)
         val keys = list.map { it.convKey }
         if (keys.isNotEmpty()) db.conversations().deleteNotIn(keys)
     }
@@ -213,7 +221,58 @@ class Repository(
         val dto = sent ?: error("GroupMe did not accept the message")
         val entity = dto.toEntity(c.convKey)
         db.messages().insertAll(listOf(entity))
-        db.conversations().bump(c.convKey, entity.preview(), entity.createdAt, 0)
+        // A new direct chat only exists locally until the first message is sent; make sure it has a row.
+        if (db.conversations().get(c.convKey) == null) {
+            db.conversations().upsertAll(listOf(c.copy(lastText = entity.preview(), lastAt = entity.createdAt)))
+        } else {
+            db.conversations().bump(c.convKey, entity.preview(), entity.createdAt, 0)
+        }
+    }
+
+    // --------------------------------------------------- new chats
+
+    /** Opens (or prepares) a direct chat with [contact]; it becomes real on the first message. */
+    suspend fun startDirect(contact: ContactEntity): ConversationEntity = withContext(Dispatchers.IO) {
+        val key = "d:${contact.userId}"
+        db.conversations().get(key) ?: ConversationEntity(
+            convKey = key, type = DM, targetId = contact.userId,
+            name = contact.name.ifBlank { "Direct chat" }, imageUrl = contact.imageUrl,
+            lastText = "", lastAt = 0,
+        ).also { db.conversations().upsertAll(listOf(it)) }
+    }
+
+    class CreateResult(val conv: ConversationEntity, val memberError: String?)
+
+    suspend fun createGroup(
+        name: String,
+        description: String,
+        members: List<ContactEntity>,
+        extras: List<String>,
+    ): CreateResult = withContext(Dispatchers.IO) {
+        val g = api.createGroup(CreateGroupBody(name, description.ifBlank { null })).response
+            ?: error("GroupMe did not create the group")
+        val conv = ConversationEntity(
+            convKey = "g:${g.id}", type = GROUP, targetId = g.id, name = g.name ?: name,
+            imageUrl = g.imageUrl, lastText = "",
+            lastAt = maxOf(g.createdAt, System.currentTimeMillis() / 1000),
+        )
+        db.conversations().upsertAll(listOf(conv))
+
+        val adds = members.map { MemberAdd(nickname = it.name.ifBlank { "Member" }, userId = it.userId) } +
+            extras.map { e ->
+                if ('@' in e) MemberAdd(nickname = e.substringBefore('@'), email = e)
+                else MemberAdd(nickname = e, phoneNumber = e)
+            }
+        var memberError: String? = null
+        if (adds.isNotEmpty()) {
+            try {
+                val r = api.addMembers(g.id, AddMembersBody(adds))
+                if (!r.isSuccessful) memberError = "HTTP ${r.code()}"
+            } catch (e: Exception) {
+                memberError = e.message ?: "unknown error"
+            }
+        }
+        CreateResult(conv, memberError)
     }
 
     private fun likeConversationId(c: ConversationEntity): String =

@@ -5,8 +5,10 @@ import android.net.Uri
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jmtditech.groupme.data.ContactEntity
 import com.jmtditech.groupme.data.ConversationEntity
 import com.jmtditech.groupme.data.MessageEntity
+import com.jmtditech.groupme.data.Repository
 import com.jmtditech.groupme.data.ServiceLocator
 import com.jmtditech.groupme.service.Notifier
 import com.jmtditech.groupme.service.PushService
@@ -155,12 +157,17 @@ class ChatViewModel(private val convKey: String) : ViewModel() {
     val loadingOlder = MutableStateFlow(false)
     val errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     private var exhausted = false
+    // A brand-new direct chat has no server-side row yet; remember it so sending still works if the list refreshes.
+    private var lastConv: ConversationEntity? = null
 
     init {
+        viewModelScope.launch { conv.collect { if (it != null) lastConv = it } }
         viewModelScope.launch {
             sl.db.conversations().markRead(convKey)
             Notifier.cancel(sl.appContext, convKey)
             val c = sl.db.conversations().get(convKey) ?: return@launch
+            // A direct chat that was just started has no history on the server yet.
+            if (c.type == Repository.DM && c.lastAt == 0L) return@launch
             try {
                 sl.repo.refreshMessages(c)
             } catch (e: Exception) {
@@ -186,7 +193,7 @@ class ChatViewModel(private val convKey: String) : ViewModel() {
     }
 
     fun send(text: String, image: Uri?, onResult: (Boolean) -> Unit) {
-        val c = conv.value ?: return
+        val c = conv.value ?: lastConv ?: return
         viewModelScope.launch {
             sending.value = true
             try {
@@ -227,6 +234,52 @@ class SearchViewModel : ViewModel() {
                 ServiceLocator.repo.search(q)
             } catch (e: Exception) {
                 emptyList()
+            }
+        }
+    }
+}
+
+class NewChatViewModel : ViewModel() {
+    private val sl = ServiceLocator
+
+    val contacts: StateFlow<List<ContactEntity>> =
+        sl.db.contacts().observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val creating = MutableStateFlow(false)
+    val errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    fun startDirect(contact: ContactEntity, onOpen: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                onOpen(sl.repo.startDirect(contact).convKey)
+            } catch (e: Exception) {
+                errors.tryEmit(e.message ?: "Could not open chat")
+            }
+        }
+    }
+
+    fun createGroup(
+        name: String,
+        description: String,
+        members: List<ContactEntity>,
+        extras: List<String>,
+        onOpen: (String) -> Unit,
+    ) {
+        if (creating.value) return
+        viewModelScope.launch {
+            creating.value = true
+            try {
+                val r = sl.repo.createGroup(name, description, members, extras)
+                if (r.memberError != null) {
+                    android.widget.Toast.makeText(
+                        sl.appContext, "Group created, but adding people failed: ${r.memberError}",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+                onOpen(r.conv.convKey)
+            } catch (e: Exception) {
+                errors.tryEmit(e.message ?: "Could not create group")
+            } finally {
+                creating.value = false
             }
         }
     }

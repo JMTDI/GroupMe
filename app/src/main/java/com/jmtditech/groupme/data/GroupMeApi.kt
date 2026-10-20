@@ -19,6 +19,13 @@ interface GroupMeApi {
     suspend fun chats(@Query("page") page: Int, @Query("per_page") perPage: Int): Envelope<List<ChatDto>>
 
     /** 304 (no body) means "nothing new" when after_id is used. */
+    @POST("groups")
+    suspend fun createGroup(@Body body: CreateGroupBody): Envelope<GroupDto>
+
+    /** Replies 202 Accepted; members are added asynchronously. */
+    @POST("groups/{id}/members/add")
+    suspend fun addMembers(@Path("id") id: String, @Body body: AddMembersBody): Response<Unit>
+
     @GET("groups/{id}/messages")
     suspend fun groupMessages(
         @Path("id") id: String,

@@ -30,6 +30,8 @@ import com.jmtditech.groupme.ui.ChatScreen
 import com.jmtditech.groupme.ui.ConversationListScreen
 import com.jmtditech.groupme.ui.LoginScreen
 import com.jmtditech.groupme.ui.MainViewModel
+import com.jmtditech.groupme.ui.NewChatScreen
+import com.jmtditech.groupme.ui.NewGroupScreen
 import com.jmtditech.groupme.ui.SearchScreen
 import com.jmtditech.groupme.ui.SettingsScreen
 
@@ -103,6 +105,21 @@ private fun MainNav(vm: MainViewModel) {
                 onOpen = { nav.navigate("chat/" + Uri.encode(it)) },
                 onSearch = { nav.navigate("search") },
                 onSettings = { nav.navigate("settings") },
+                onNew = { nav.navigate("new") },
+            )
+        }
+        composable("new") {
+            NewChatScreen(
+                onBack = { nav.popBackStack() },
+                onNewGroup = { nav.navigate("newgroup") },
+                // Replace the "new chat" screens with the chat so Back returns to the list.
+                onOpenChat = { key -> nav.navigate("chat/" + Uri.encode(key)) { popUpTo("list") } },
+            )
+        }
+        composable("newgroup") {
+            NewGroupScreen(
+                onBack = { nav.popBackStack() },
+                onOpenChat = { key -> nav.navigate("chat/" + Uri.encode(key)) { popUpTo("list") } },
             )
         }
         composable(

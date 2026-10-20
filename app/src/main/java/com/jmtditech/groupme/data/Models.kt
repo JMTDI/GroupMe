@@ -35,12 +35,21 @@ data class GroupMsgInfo(
 )
 
 @Serializable
+data class MemberDto(
+    @SerialName("user_id") val userId: String,
+    val nickname: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
+)
+
+@Serializable
 data class GroupDto(
     val id: String,
     val name: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("created_at") val createdAt: Long = 0,
     @SerialName("updated_at") val updatedAt: Long = 0,
     val messages: GroupMsgInfo? = null,
+    val members: List<MemberDto> = emptyList(),
 )
 
 @Serializable
@@ -113,3 +122,21 @@ data class UploadPayload(
     val url: String? = null,
     @SerialName("picture_url") val pictureUrl: String? = null,
 )
+
+@Serializable
+data class CreateGroupBody(
+    val name: String,
+    val description: String? = null,
+    val share: Boolean = false,
+)
+
+@Serializable
+data class MemberAdd(
+    val nickname: String,
+    @SerialName("user_id") val userId: String? = null,
+    @SerialName("phone_number") val phoneNumber: String? = null,
+    val email: String? = null,
+)
+
+@Serializable
+data class AddMembersBody(val members: List<MemberAdd>)

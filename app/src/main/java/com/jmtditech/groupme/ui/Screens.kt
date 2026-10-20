@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -141,6 +142,7 @@ fun ConversationListScreen(
     onOpen: (String) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
+    onNew: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val convs by vm.conversations.collectAsStateWithLifecycle()
@@ -170,6 +172,7 @@ fun ConversationListScreen(
     Scaffold(
         topBar = {
             CompactBar(title = "Chats", actions = {
+                PadIcon(Icons.Default.Add, "New chat", onNew)
                 PadIcon(Icons.Default.Refresh, "Refresh", { vm.refresh() })
                 PadIcon(Icons.Default.Search, "Search", onSearch)
                 PadIcon(Icons.Default.Settings, "Settings", onSettings)
