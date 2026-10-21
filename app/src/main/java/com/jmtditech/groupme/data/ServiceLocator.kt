@@ -23,6 +23,8 @@ object ServiceLocator {
         private set
     lateinit var faye: FayeClient
         private set
+    lateinit var updater: Updater
+        private set
 
     val json = Json {
         ignoreUnknownKeys = true
@@ -58,5 +60,13 @@ object ServiceLocator {
 
         faye = FayeClient(http.newBuilder().pingInterval(30, TimeUnit.SECONDS).readTimeout(0, TimeUnit.SECONDS).build(), json)
         repo = Repository(api, db, prefs, appContext, json)
+
+        // Deliberately a separate client WITHOUT the interceptor above: the GroupMe access token must never be
+        // sent to GitHub.
+        updater = Updater(
+            appContext,
+            OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build(),
+            json,
+        )
     }
 }

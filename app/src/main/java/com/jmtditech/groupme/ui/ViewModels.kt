@@ -5,11 +5,13 @@ import android.net.Uri
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jmtditech.groupme.BuildConfig
 import com.jmtditech.groupme.data.ContactEntity
 import com.jmtditech.groupme.data.ConversationEntity
 import com.jmtditech.groupme.data.MessageEntity
 import com.jmtditech.groupme.data.Repository
 import com.jmtditech.groupme.data.ServiceLocator
+import com.jmtditech.groupme.data.UpdateInfo
 import com.jmtditech.groupme.service.Notifier
 import com.jmtditech.groupme.service.PushService
 import kotlinx.coroutines.CancellationException
@@ -120,6 +122,80 @@ class MainViewModel : ViewModel() {
             }
             delay(backoff)
             backoff = minOf(backoff * 2, 60_000L)
+        }
+    }
+
+    // ------------------------------------------------------------ updates
+
+    val updatesEnabled: StateFlow<Boolean> =
+        sl.prefs.updatesEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val updateInfo = MutableStateFlow<UpdateInfo?>(null)
+    val updateDismissed = MutableStateFlow(false)
+    val updateBusy = MutableStateFlow<String?>(null)
+    val updateMessage = MutableStateFlow<String?>(null)
+    val updateError = MutableStateFlow<String?>(null)
+    private var downloaded: Pair<String, java.io.File>? = null
+
+    fun setUpdatesEnabled(v: Boolean) {
+        viewModelScope.launch { sl.prefs.setUpdatesEnabled(v) }
+    }
+
+    /** Automatic checks run at most every 12 hours; a manual check always runs. */
+    fun checkForUpdates(manual: Boolean) {
+        if (updateBusy.value != null) return
+        viewModelScope.launch {
+            if (!manual) {
+                if (!sl.prefs.updatesEnabledNow()) return@launch
+                if (System.currentTimeMillis() - sl.prefs.lastUpdateCheck() < 12 * 3_600_000L) return@launch
+            }
+            updateBusy.value = "Checking…"
+            try {
+                val info = sl.updater.fetchLatest(BuildConfig.UPDATE_REPO)
+                sl.prefs.setLastUpdateCheck(System.currentTimeMillis())
+                if (info != null && sl.updater.isNewer(info.tag, BuildConfig.VERSION_NAME)) {
+                    updateInfo.value = info
+                    updateDismissed.value = false
+                    updateMessage.value = "Update ${info.tag} available"
+                } else {
+                    updateInfo.value = null
+                    updateMessage.value = "Up to date (${BuildConfig.VERSION_NAME})"
+                }
+            } catch (e: Exception) {
+                if (manual) updateMessage.value = "Could not check: ${e.message}"
+            } finally {
+                updateBusy.value = null
+            }
+        }
+    }
+
+    fun startUpdate() {
+        val info = updateInfo.value ?: return
+        if (updateBusy.value != null) return
+        viewModelScope.launch {
+            updateError.value = null
+            try {
+                val cached = downloaded?.takeIf { it.first == info.tag && it.second.exists() }?.second
+                val file = cached ?: run {
+                    updateBusy.value = "Downloading 0%"
+                    sl.updater.download(info) { p -> updateBusy.value = "Downloading $p%" }
+                        .also { downloaded = info.tag to it }
+                }
+                if (sl.updater.sameSigner(file) == false) {
+                    updateError.value = "This update is signed with a different key than the installed app. " +
+                        "Uninstall GroupMe once, then install the new APK."
+                    return@launch
+                }
+                if (!sl.updater.canInstall()) {
+                    updateError.value = "Allow GroupMe to install apps on the page that just opened, then press Update again."
+                    sl.appContext.startActivity(sl.updater.permissionIntent())
+                    return@launch
+                }
+                sl.appContext.startActivity(sl.updater.installIntent(file))
+            } catch (e: Exception) {
+                updateError.value = "Update failed: ${e.message}"
+            } finally {
+                updateBusy.value = null
+            }
         }
     }
 

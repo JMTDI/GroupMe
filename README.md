@@ -37,6 +37,15 @@ Built for phones with no touchscreen and screens as small as 240x320:
 
 Requires JDK 17, compileSdk 34, minSdk 26.
 
+## Updates from GitHub
+The app checks your repository's latest GitHub Release on launch (at most every 12 hours; Settings has a toggle and a
+"Check for updates now" button). If a newer version exists it shows the release notes; "Update" downloads the APK,
+verifies its SHA-256 and opens Android's installer. The first time, Android asks you to allow this app to install apps.
+- Versions come from the tag you give the "Build and Release" workflow (`v1.8` -> 1.8); the version code is the run number.
+- Updates only install over an app signed with the same key, so release every build with your keystore. If a
+  release was built with the debug fallback, Android refuses it and the app says so; uninstall and reinstall once.
+- The repository must be public (the app doesn't log in to GitHub). Updates are never sent your GroupMe token.
+
 ## New chats and groups
 The **+** button in the chat list opens "New chat", like GroupMe's own:
 - **Find contacts** searches people from your groups and chats, plus contacts you save; pick a GroupMe user to start a

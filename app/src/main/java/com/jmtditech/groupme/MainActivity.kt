@@ -35,6 +35,7 @@ import com.jmtditech.groupme.ui.NewChatScreen
 import com.jmtditech.groupme.ui.NewGroupScreen
 import com.jmtditech.groupme.ui.SearchScreen
 import com.jmtditech.groupme.ui.SettingsScreen
+import com.jmtditech.groupme.ui.UpdatePrompt
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
@@ -76,6 +77,7 @@ private fun AppRoot(vm: MainViewModel) {
         false -> LoginScreen(vm)
         true -> MainNav(vm)
     }
+    UpdatePrompt(vm)
 }
 
 @Composable

@@ -11,6 +11,16 @@ val groupmeClientId: String = System.getenv("GROUPME_CLIENT_ID")?.takeIf { it.is
     ?: providers.gradleProperty("GROUPME_CLIENT_ID").orNull
     ?: ""
 
+// Release builds pass the version in from the tag (see .github/workflows/build.yml).
+val appVersionName: String = System.getenv("APP_VERSION_NAME")?.takeIf { it.isNotBlank() }
+    ?: providers.gradleProperty("APP_VERSION_NAME").orNull
+    ?: "1.0"
+val appVersionCode: Int = System.getenv("APP_VERSION_CODE")?.toIntOrNull()
+    ?: providers.gradleProperty("APP_VERSION_CODE").orNull?.toIntOrNull()
+    ?: 1
+// GitHub repository to check for updates ("owner/name"); Actions provides GITHUB_REPOSITORY.
+val updateRepo: String = System.getenv("GITHUB_REPOSITORY")?.takeIf { it.isNotBlank() } ?: "JMTDI/GroupMe"
+
 android {
     namespace = "com.jmtditech.groupme"
     compileSdk = 34
@@ -19,8 +29,9 @@ android {
         applicationId = "com.jmtditech.groupme"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+        buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
         buildConfigField("String", "GROUPME_CLIENT_ID", "\"$groupmeClientId\"")
     }
 

@@ -295,6 +295,10 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val notif by vm.notificationsEnabled.collectAsStateWithLifecycle()
     val service by vm.serviceEnabled.collectAsStateWithLifecycle()
+    val updatesOn by vm.updatesEnabled.collectAsStateWithLifecycle()
+    val updateBusy by vm.updateBusy.collectAsStateWithLifecycle()
+    val updateMessage by vm.updateMessage.collectAsStateWithLifecycle()
+    val updateInfo by vm.updateInfo.collectAsStateWithLifecycle()
     var confirmSignOut by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(150); runCatching { first.requestFocus() } }
@@ -317,6 +321,27 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
                 Modifier,
             ) { vm.setService(it) }
 
+            SettingRow(
+                "Automatic updates",
+                "Check GitHub for new versions (installed ${BuildConfig.VERSION_NAME})",
+                updatesOn,
+                Modifier,
+            ) { vm.setUpdatesEnabled(it) }
+            PadButton(
+                updateBusy ?: "Check for updates now",
+                onClick = { vm.checkForUpdates(manual = true) },
+                enabled = updateBusy == null,
+                modifier = Modifier.fillMaxWidth(),
+                primary = false,
+            )
+            updateMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            updateInfo?.let { info ->
+                PadButton(
+                    "Install ${info.tag}",
+                    onClick = { vm.updateDismissed.value = false },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             PadButton(
                 "Battery optimisation",
                 onClick = {

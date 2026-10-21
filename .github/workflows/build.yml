@@ -47,6 +47,10 @@ jobs:
           # Works whether it was added as a repository variable or as a secret.
           GROUPME_CLIENT_ID: ${{ vars.GROUPME_CLIENT_ID || secrets.GROUPME_CLIENT_ID }}
         run: |
+          # Version comes from the tag (v1.8 -> 1.8); the version code grows with every run so Android accepts updates.
+          export APP_VERSION_NAME="${TAG#v}"
+          export APP_VERSION_CODE="$GITHUB_RUN_NUMBER"
+          echo "Building version $APP_VERSION_NAME (code $APP_VERSION_CODE)"
           if [ -n "$GROUPME_CLIENT_ID" ]; then
             echo "GROUPME_CLIENT_ID is set (${#GROUPME_CLIENT_ID} characters): OAuth sign-in will be included."
           else

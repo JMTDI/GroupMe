@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,8 @@ class Prefs(private val ctx: Context) {
         val clientId = stringPreferencesKey("client_id")
         val notifications = booleanPreferencesKey("notifications")
         val service = booleanPreferencesKey("service")
+        val updates = booleanPreferencesKey("auto_updates")
+        val lastUpdateCheck = longPreferencesKey("last_update_check")
     }
 
     // In-memory copies so the HTTP interceptor and receivers can read them synchronously.
@@ -47,6 +50,7 @@ class Prefs(private val ctx: Context) {
         .distinctUntilChanged()
     val notificationsEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[K.notifications] ?: true }
     val serviceEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[K.service] ?: true }
+    val updatesEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[K.updates] ?: true }
     val clientId: Flow<String> = ctx.dataStore.data.map { it[K.clientId] ?: "" }
 
     fun setTokenTemp(t: String?) { token = t }
@@ -69,6 +73,10 @@ class Prefs(private val ctx: Context) {
 
     suspend fun setNotifications(v: Boolean) { ctx.dataStore.edit { it[K.notifications] = v } }
     suspend fun setServiceEnabled(v: Boolean) { ctx.dataStore.edit { it[K.service] = v } }
+    suspend fun setUpdatesEnabled(v: Boolean) { ctx.dataStore.edit { it[K.updates] = v } }
+    suspend fun updatesEnabledNow(): Boolean = updatesEnabled.first()
+    suspend fun lastUpdateCheck(): Long = ctx.dataStore.data.first()[K.lastUpdateCheck] ?: 0L
+    suspend fun setLastUpdateCheck(v: Long) { ctx.dataStore.edit { it[K.lastUpdateCheck] = v } }
     suspend fun setClientId(v: String) { ctx.dataStore.edit { it[K.clientId] = v } }
     suspend fun notificationsEnabledNow(): Boolean = notificationsEnabled.first()
     suspend fun serviceEnabledNow(): Boolean = serviceEnabled.first()
