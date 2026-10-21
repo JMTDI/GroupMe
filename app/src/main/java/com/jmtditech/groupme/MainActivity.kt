@@ -26,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.jmtditech.groupme.data.AppState
 import com.jmtditech.groupme.ui.AppTheme
+import com.jmtditech.groupme.ui.AddContactScreen
 import com.jmtditech.groupme.ui.ChatScreen
 import com.jmtditech.groupme.ui.ConversationListScreen
 import com.jmtditech.groupme.ui.LoginScreen
@@ -112,12 +113,28 @@ private fun MainNav(vm: MainViewModel) {
             NewChatScreen(
                 onBack = { nav.popBackStack() },
                 onNewGroup = { nav.navigate("newgroup") },
+                onAddContact = { nav.navigate("addcontact") },
+                // Saved phone/email contacts can't be messaged directly, so start a group with them selected.
+                onInvite = { key -> nav.navigate("newgroup?with=" + Uri.encode(key)) },
                 // Replace the "new chat" screens with the chat so Back returns to the list.
                 onOpenChat = { key -> nav.navigate("chat/" + Uri.encode(key)) { popUpTo("list") } },
             )
         }
-        composable("newgroup") {
+        composable("addcontact") {
+            AddContactScreen(onBack = { nav.popBackStack() })
+        }
+        composable(
+            route = "newgroup?with={with}",
+            arguments = listOf(
+                navArgument("with") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { entry ->
             NewGroupScreen(
+                preselect = entry.arguments?.getString("with"),
                 onBack = { nav.popBackStack() },
                 onOpenChat = { key -> nav.navigate("chat/" + Uri.encode(key)) { popUpTo("list") } },
             )

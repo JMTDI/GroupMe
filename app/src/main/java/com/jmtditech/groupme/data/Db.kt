@@ -26,12 +26,22 @@ data class ConversationEntity(
     val unread: Int = 0,
 )
 
-/** People you can start a direct chat with: members of your groups and your existing chats. */
+/**
+ * People you can chat with. Two kinds:
+ *  - GroupMe users (userId set): members of your groups / existing chats. Can be messaged directly.
+ *  - Saved or imported contacts (local = true, userId null): a phone number or email. GroupMe can only invite
+ *    these into a group; a direct chat needs a GroupMe user id.
+ * contactKey is "u:<userId>", "p:<phone>" or "e:<email>".
+ */
 @Entity(tableName = "contacts")
 data class ContactEntity(
-    @PrimaryKey val userId: String,
+    @PrimaryKey val contactKey: String,
+    val userId: String?,
     val name: String,
     val imageUrl: String?,
+    val phone: String? = null,
+    val email: String? = null,
+    val local: Boolean = false,
 )
 
 @Entity(tableName = "messages", indices = [Index("convKey"), Index("createdAt")])
@@ -89,6 +99,9 @@ interface ContactDao {
 
     @Upsert
     suspend fun upsertAll(list: List<ContactEntity>)
+
+    @Query("DELETE FROM contacts WHERE contactKey = :key")
+    suspend fun delete(key: String)
 }
 
 @Dao
@@ -118,7 +131,7 @@ interface MessageDao {
     suspend fun search(q: String): List<MessageEntity>
 }
 
-@Database(entities = [ConversationEntity::class, MessageEntity::class, ContactEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ConversationEntity::class, MessageEntity::class, ContactEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun conversations(): ConversationDao
     abstract fun messages(): MessageDao

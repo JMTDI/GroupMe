@@ -247,14 +247,51 @@ class NewChatViewModel : ViewModel() {
     val creating = MutableStateFlow(false)
     val errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
 
-    fun startDirect(contact: ContactEntity, onOpen: (String) -> Unit) {
+    /** GroupMe users open a direct chat; saved phone/email contacts can only be invited into a group. */
+    fun open(contact: ContactEntity, onDirect: (String) -> Unit, onInvite: (String) -> Unit) {
+        if (contact.userId == null) {
+            toast("Direct messages need a GroupMe account. Starting a new group with ${contact.name.ifBlank { "them" }}.")
+            onInvite(contact.contactKey)
+            return
+        }
         viewModelScope.launch {
             try {
-                onOpen(sl.repo.startDirect(contact).convKey)
+                onDirect(sl.repo.startDirect(contact).convKey)
             } catch (e: Exception) {
                 errors.tryEmit(e.message ?: "Could not open chat")
             }
         }
+    }
+
+    fun saveContact(name: String, value: String, onDone: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                sl.repo.saveContact(name, value)
+                onDone()
+            } catch (e: Exception) {
+                errors.tryEmit(e.message ?: "Could not save contact")
+            }
+        }
+    }
+
+    fun deleteContact(key: String) {
+        viewModelScope.launch { sl.repo.deleteContact(key) }
+    }
+
+    fun importPhone() {
+        viewModelScope.launch {
+            try {
+                toast("Imported ${sl.repo.importPhoneContacts()} contacts")
+            } catch (e: SecurityException) {
+                errors.tryEmit("Contacts permission was not granted")
+            } catch (e: Exception) {
+                errors.tryEmit(e.message ?: "Could not import contacts")
+            }
+        }
+    }
+
+    private fun toast(msg: String) {
+        android.widget.Toast.makeText(sl.appContext, msg, android.widget.Toast.LENGTH_LONG).show()
     }
 
     fun createGroup(

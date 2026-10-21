@@ -89,11 +89,14 @@ class Repository(
         db.conversations().upsertAll(list)
         val me = myId
         val contacts = (
-            chats.map { ContactEntity(it.otherUser.id, it.otherUser.name.orEmpty(), it.otherUser.avatarUrl ?: it.otherUser.imageUrl) } +
-                groups.flatMap { g -> g.members.map { ContactEntity(it.userId, it.nickname.orEmpty(), it.imageUrl) } }
+            chats.map {
+                ContactEntity("u:${it.otherUser.id}", it.otherUser.id, it.otherUser.name.orEmpty(), it.otherUser.avatarUrl ?: it.otherUser.imageUrl)
+            } + groups.flatMap { g ->
+                g.members.map { ContactEntity("u:${it.userId}", it.userId, it.nickname.orEmpty(), it.imageUrl) }
+            }
             )
-            .filter { it.userId.isNotBlank() && it.userId != me }
-            .distinctBy { it.userId }
+            .filter { !it.userId.isNullOrBlank() && it.userId != me }
+            .distinctBy { it.contactKey }
         db.contacts().upsertAll(contacts)
         val keys = list.map { it.convKey }
         if (keys.isNotEmpty()) db.conversations().deleteNotIn(keys)
@@ -233,12 +236,75 @@ class Repository(
 
     /** Opens (or prepares) a direct chat with [contact]; it becomes real on the first message. */
     suspend fun startDirect(contact: ContactEntity): ConversationEntity = withContext(Dispatchers.IO) {
-        val key = "d:${contact.userId}"
+        val uid = contact.userId ?: error("This contact has no GroupMe account yet")
+        val key = "d:$uid"
         db.conversations().get(key) ?: ConversationEntity(
-            convKey = key, type = DM, targetId = contact.userId,
+            convKey = key, type = DM, targetId = uid,
             name = contact.name.ifBlank { "Direct chat" }, imageUrl = contact.imageUrl,
             lastText = "", lastAt = 0,
         ).also { db.conversations().upsertAll(listOf(it)) }
+    }
+
+    // ------------------------------------------------------ contacts
+
+    /** GroupMe wants phone numbers like "+1 2025550123". */
+    private fun normalizePhone(raw: String): String {
+        val digits = raw.filter { it.isDigit() }
+        return when {
+            digits.length == 10 -> "+1 $digits"
+            digits.length == 11 && digits.startsWith("1") -> "+1 ${digits.substring(1)}"
+            raw.trim().startsWith("+") -> "+$digits"
+            else -> digits
+        }
+    }
+
+    /** Saves a contact by phone number or email (anything containing '@' is treated as an email). */
+    suspend fun saveContact(name: String, phoneOrEmail: String) = withContext(Dispatchers.IO) {
+        val v = phoneOrEmail.trim()
+        val c = if ('@' in v) {
+            ContactEntity("e:${v.lowercase()}", null, name.trim(), null, null, v, true)
+        } else {
+            val p = normalizePhone(v)
+            require(p.count { it.isDigit() } >= 7) { "Enter a valid phone number or email" }
+            ContactEntity("p:$p", null, name.trim(), null, p, null, true)
+        }
+        db.contacts().upsertAll(listOf(c))
+    }
+
+    suspend fun deleteContact(key: String) = withContext(Dispatchers.IO) { db.contacts().delete(key) }
+
+    /** Imports names with phone numbers / emails from the phone's address book (needs READ_CONTACTS). */
+    suspend fun importPhoneContacts(): Int = withContext(Dispatchers.IO) {
+        val cr = ctx.contentResolver
+        val out = LinkedHashMap<String, ContactEntity>()
+        val nameCol = android.provider.ContactsContract.Contacts.DISPLAY_NAME
+        cr.query(
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(nameCol, android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+            null, null, null,
+        )?.use { cur ->
+            while (cur.moveToNext()) {
+                val name = cur.getString(0).orEmpty().trim()
+                val num = cur.getString(1).orEmpty()
+                if (name.isBlank() || num.count { it.isDigit() } < 7) continue
+                val p = normalizePhone(num)
+                out.putIfAbsent("p:$p", ContactEntity("p:$p", null, name, null, p, null, true))
+            }
+        }
+        cr.query(
+            android.provider.ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+            arrayOf(nameCol, android.provider.ContactsContract.CommonDataKinds.Email.ADDRESS),
+            null, null, null,
+        )?.use { cur ->
+            while (cur.moveToNext()) {
+                val name = cur.getString(0).orEmpty().trim()
+                val mail = cur.getString(1).orEmpty().trim()
+                if (name.isBlank() || '@' !in mail) continue
+                out.putIfAbsent("e:${mail.lowercase()}", ContactEntity("e:${mail.lowercase()}", null, name, null, null, mail, true))
+            }
+        }
+        db.contacts().upsertAll(out.values.toList())
+        out.size
     }
 
     class CreateResult(val conv: ConversationEntity, val memberError: String?)
@@ -258,7 +324,15 @@ class Repository(
         )
         db.conversations().upsertAll(listOf(conv))
 
-        val adds = members.map { MemberAdd(nickname = it.name.ifBlank { "Member" }, userId = it.userId) } +
+        val adds = members.map {
+            val byId = it.userId != null
+            MemberAdd(
+                nickname = it.name.ifBlank { "Member" },
+                userId = it.userId,
+                phoneNumber = if (byId) null else it.phone,
+                email = if (byId) null else it.email,
+            )
+        } +
             extras.map { e ->
                 if ('@' in e) MemberAdd(nickname = e.substringBefore('@'), email = e)
                 else MemberAdd(nickname = e, phoneNumber = e)

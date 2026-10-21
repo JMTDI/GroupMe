@@ -39,8 +39,11 @@ Requires JDK 17, compileSdk 34, minSdk 26.
 
 ## New chats and groups
 The **+** button in the chat list opens "New chat", like GroupMe's own:
-- **Find contacts** searches people from your groups and chats; pick one to start a direct message (the chat is created
-  when you send the first message).
+- **Find contacts** searches people from your groups and chats, plus contacts you save; pick a GroupMe user to start a
+  direct message (created when you send the first message).
+- **Add contact** saves a name with a phone number or email, and **Import phone contacts** copies names and numbers from
+  the phone's address book (asks for the Contacts permission). GroupMe's API can't look people up or message a bare
+  number, so these contacts can be invited into a group (picking one starts a new group with them selected).
 - **New group** creates a group (name, optional description), and adds people from your contacts and/or by phone
   number or email.
 GroupMe's public API has no Announcement, Event or Vanishing group types, so those can't be created from here.
