@@ -58,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jmtditech.groupme.BuildConfig
 import com.jmtditech.groupme.data.ConversationEntity
+import com.jmtditech.groupme.data.Prefs
 import kotlinx.coroutines.delay
 
 // ---------------------------------------------------------------- login
@@ -294,7 +295,7 @@ fun SearchScreen(onOpen: (String) -> Unit, onBack: () -> Unit) {
 fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val notif by vm.notificationsEnabled.collectAsStateWithLifecycle()
-    val service by vm.serviceEnabled.collectAsStateWithLifecycle()
+    val bgMode by vm.bgMode.collectAsStateWithLifecycle()
     val updatesOn by vm.updatesEnabled.collectAsStateWithLifecycle()
     val updateBusy by vm.updateBusy.collectAsStateWithLifecycle()
     val updateMessage by vm.updateMessage.collectAsStateWithLifecycle()
@@ -314,12 +315,50 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit) {
                 "Notifications", "Show a notification for new messages", notif,
                 Modifier.focusRequester(first),
             ) { vm.setNotifications(it) }
-            SettingRow(
-                "Background connection",
-                "Live connection for instant messages (silent ongoing notification)",
-                service,
-                Modifier,
-            ) { vm.setService(it) }
+            Text("Messages while the app is closed", style = MaterialTheme.typography.titleSmall)
+            PadButton(
+                "Every 15 minutes (no notification)",
+                onClick = { vm.setBgMode(Prefs.MODE_PERIODIC) },
+                modifier = Modifier.fillMaxWidth(),
+                primary = bgMode == Prefs.MODE_PERIODIC,
+            )
+            PadButton(
+                "Instant (shows a notification)",
+                onClick = { vm.setBgMode(Prefs.MODE_INSTANT) },
+                modifier = Modifier.fillMaxWidth(),
+                primary = bgMode == Prefs.MODE_INSTANT,
+            )
+            PadButton(
+                "Off",
+                onClick = { vm.setBgMode(Prefs.MODE_OFF) },
+                modifier = Modifier.fillMaxWidth(),
+                primary = bgMode == Prefs.MODE_OFF,
+            )
+            Text(
+                when (bgMode) {
+                    Prefs.MODE_INSTANT -> "A live connection delivers messages immediately. Android requires it to show a small ongoing notification."
+                    Prefs.MODE_PERIODIC -> "Android checks for new messages about every 15 minutes, sometimes later in battery saver. No ongoing notification."
+                    else -> "No background checks. Messages load when you open the app."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (bgMode == Prefs.MODE_INSTANT && android.os.Build.VERSION.SDK_INT >= 26) {
+                PadButton(
+                    "Background notification settings",
+                    onClick = {
+                        runCatching {
+                            ctx.startActivity(
+                                Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                                    .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, "service"),
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    primary = false,
+                )
+            }
 
             SettingRow(
                 "Automatic updates",

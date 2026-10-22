@@ -13,6 +13,8 @@ import com.jmtditech.groupme.data.Repository
 import com.jmtditech.groupme.data.ServiceLocator
 import com.jmtditech.groupme.data.UpdateInfo
 import com.jmtditech.groupme.service.Notifier
+import com.jmtditech.groupme.data.Prefs
+import com.jmtditech.groupme.service.PollWorker
 import com.jmtditech.groupme.service.PushService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +39,11 @@ class MainViewModel : ViewModel() {
         sl.db.conversations().observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val notificationsEnabled: StateFlow<Boolean> =
         sl.prefs.notificationsEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    /** True only in "Instant" mode (foreground service running). */
     val serviceEnabled: StateFlow<Boolean> =
-        sl.prefs.serviceEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        sl.prefs.serviceEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val bgMode: StateFlow<String> =
+        sl.prefs.bgMode.stateIn(viewModelScope, SharingStarted.Eagerly, Prefs.MODE_PERIODIC)
     val clientId: StateFlow<String> =
         sl.prefs.clientId.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
@@ -81,9 +86,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun onSignedIn() {
-        viewModelScope.launch {
-            if (sl.prefs.serviceEnabledNow()) PushService.start(sl.appContext)
-        }
+        viewModelScope.launch { applyBackgroundMode(sl.prefs.bgModeNow()) }
         refresh()
     }
 
@@ -203,16 +206,26 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch { sl.prefs.setNotifications(v) }
     }
 
-    fun setService(v: Boolean) {
+    fun setBgMode(mode: String) {
         viewModelScope.launch {
-            sl.prefs.setServiceEnabled(v)
-            if (v) PushService.start(sl.appContext) else PushService.stop(sl.appContext)
+            sl.prefs.setBgMode(mode)
+            applyBackgroundMode(mode)
+        }
+    }
+
+    private fun applyBackgroundMode(mode: String) {
+        val ctx = sl.appContext
+        when (mode) {
+            Prefs.MODE_INSTANT -> { PollWorker.cancel(ctx); PushService.start(ctx) }
+            Prefs.MODE_PERIODIC -> { PushService.stop(ctx); PollWorker.schedule(ctx) }
+            else -> { PushService.stop(ctx); PollWorker.cancel(ctx) }
         }
     }
 
     fun signOut() {
         viewModelScope.launch {
             PushService.stop(sl.appContext)
+            PollWorker.cancel(sl.appContext)
             withContext(Dispatchers.IO) { sl.db.clearAllTables() }
             NotificationManagerCompat.from(sl.appContext).cancelAll()
             sl.prefs.clearSession()

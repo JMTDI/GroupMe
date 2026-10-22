@@ -17,6 +17,12 @@ import kotlinx.coroutines.runBlocking
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class Prefs(private val ctx: Context) {
+    companion object {
+        const val MODE_INSTANT = "instant"
+        const val MODE_PERIODIC = "periodic"
+        const val MODE_OFF = "off"
+    }
+
     private object K {
         val token = stringPreferencesKey("token")
         val userId = stringPreferencesKey("user_id")
@@ -24,6 +30,7 @@ class Prefs(private val ctx: Context) {
         val clientId = stringPreferencesKey("client_id")
         val notifications = booleanPreferencesKey("notifications")
         val service = booleanPreferencesKey("service")
+        val bgMode = stringPreferencesKey("bg_mode")
         val updates = booleanPreferencesKey("auto_updates")
         val lastUpdateCheck = longPreferencesKey("last_update_check")
     }
@@ -49,7 +56,19 @@ class Prefs(private val ctx: Context) {
         .map { !it[K.token].isNullOrBlank() && !it[K.userId].isNullOrBlank() }
         .distinctUntilChanged()
     val notificationsEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[K.notifications] ?: true }
-    val serviceEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[K.service] ?: true }
+    /**
+     * How messages arrive while the app is closed: [MODE_INSTANT] (foreground service with a persistent
+     * notification), [MODE_PERIODIC] (WorkManager, about every 15 minutes, no persistent notification) or [MODE_OFF].
+     * Falls back to the older on/off flag if the user had set it.
+     */
+    val bgMode: Flow<String> = ctx.dataStore.data.map { p ->
+        p[K.bgMode] ?: when (p[K.service]) {
+            false -> MODE_OFF
+            true -> MODE_INSTANT
+            else -> MODE_PERIODIC
+        }
+    }
+    val serviceEnabled: Flow<Boolean> = bgMode.map { it == MODE_INSTANT }
     val updatesEnabled: Flow<Boolean> = ctx.dataStore.data.map { it[K.updates] ?: true }
     val clientId: Flow<String> = ctx.dataStore.data.map { it[K.clientId] ?: "" }
 
@@ -72,7 +91,8 @@ class Prefs(private val ctx: Context) {
     }
 
     suspend fun setNotifications(v: Boolean) { ctx.dataStore.edit { it[K.notifications] = v } }
-    suspend fun setServiceEnabled(v: Boolean) { ctx.dataStore.edit { it[K.service] = v } }
+    suspend fun setBgMode(mode: String) { ctx.dataStore.edit { it[K.bgMode] = mode } }
+    suspend fun bgModeNow(): String = bgMode.first()
     suspend fun setUpdatesEnabled(v: Boolean) { ctx.dataStore.edit { it[K.updates] = v } }
     suspend fun updatesEnabledNow(): Boolean = updatesEnabled.first()
     suspend fun lastUpdateCheck(): Long = ctx.dataStore.data.first()[K.lastUpdateCheck] ?: 0L

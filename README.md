@@ -37,6 +37,16 @@ Built for phones with no touchscreen and screens as small as 240x320:
 
 Requires JDK 17, compileSdk 34, minSdk 26.
 
+## Background messages
+Settings -> "Messages while the app is closed" has three modes:
+- **Every 15 minutes (default):** no foreground service and no persistent notification. Android runs a check about every
+  15 minutes (it can be later in battery saver); new messages then notify.
+- **Instant:** a live push connection delivers messages immediately, but Android requires a small ongoing
+  notification for it. On Android 13+ you can hide that notification from the system's notification settings for the
+  app's "Background connection" channel (there's a shortcut button).
+- **Off:** nothing runs in the background.
+While the app is open you always get live updates.
+
 ## Updates from GitHub
 The app checks your repository's latest GitHub Release on launch (at most every 12 hours; Settings has a toggle and a
 "Check for updates now" button). If a newer version exists it shows the release notes; "Update" downloads the APK,
