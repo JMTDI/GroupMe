@@ -68,6 +68,7 @@ fun LoginScreen(vm: MainViewModel) {
     val ctx = LocalContext.current
     val compact = LocalCompact.current
     var token by rememberSaveable { mutableStateOf("") }
+    var showToken by rememberSaveable { mutableStateOf(false) }
     val busy by vm.signingIn.collectAsStateWithLifecycle()
     val error by vm.loginError.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
@@ -103,9 +104,18 @@ fun LoginScreen(vm: MainViewModel) {
             value = token,
             onValueChange = { token = it },
             hint = "Access token",
-            password = true,
+            password = !showToken,
             modifier = Modifier.fillMaxWidth().focusRequester(first),
         )
+        PadButton(
+            if (showToken) "Hide token" else "Show token",
+            onClick = { showToken = !showToken },
+            modifier = Modifier.fillMaxWidth(),
+            primary = false,
+        )
+        if (token.isNotBlank()) {
+            Text("${token.trim().length} characters", style = MaterialTheme.typography.bodySmall)
+        }
         PadButton(
             if (busy) "Signing in…" else "Sign in",
             onClick = { vm.signIn(token) },

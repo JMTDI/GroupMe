@@ -36,6 +36,11 @@ class Repository(
             prefs.saveSession(token, me.id, me.name ?: "")
         } catch (e: Exception) {
             prefs.setTokenTemp(null)
+            if (e is HttpException && e.code() == 401) {
+                throw IllegalStateException(
+                    "GroupMe rejected this token (401). Check it for typos (it is case-sensitive) or copy a fresh one from dev.groupme.com."
+                )
+            }
             throw e
         }
     }
