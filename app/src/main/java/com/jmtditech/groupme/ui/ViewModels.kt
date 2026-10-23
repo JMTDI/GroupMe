@@ -90,6 +90,23 @@ class MainViewModel : ViewModel() {
         refresh()
     }
 
+    val removing = MutableStateFlow(false)
+
+    fun remove(conv: ConversationEntity, forEveryone: Boolean, onDone: () -> Unit) {
+        if (removing.value) return
+        viewModelScope.launch {
+            removing.value = true
+            try {
+                sl.repo.removeConversation(conv, forEveryone)
+                onDone()
+            } catch (e: Exception) {
+                errors.tryEmit(e.message ?: "Could not remove this chat")
+            } finally {
+                removing.value = false
+            }
+        }
+    }
+
     fun refresh() {
         if (refreshing.value) return
         viewModelScope.launch {
@@ -304,6 +321,24 @@ class ChatViewModel(private val convKey: String) : ViewModel() {
                 sl.repo.toggleLike(c, m)
             } catch (e: Exception) {
                 errors.tryEmit(e.message ?: "Could not update like")
+            }
+        }
+    }
+
+    val removing = MutableStateFlow(false)
+
+    fun remove(forEveryone: Boolean, onDone: () -> Unit) {
+        val c = conv.value ?: lastConv ?: return
+        if (removing.value) return
+        viewModelScope.launch {
+            removing.value = true
+            try {
+                sl.repo.removeConversation(c, forEveryone)
+                onDone()
+            } catch (e: Exception) {
+                errors.tryEmit(e.message ?: "Could not remove this chat")
+            } finally {
+                removing.value = false
             }
         }
     }

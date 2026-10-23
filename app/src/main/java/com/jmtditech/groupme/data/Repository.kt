@@ -89,6 +89,8 @@ class Repository(
                 lastText = last?.let { it.text?.takeIf { t -> t.isNotBlank() } ?: if (it.attachments.isNotEmpty()) "[image]" else "" } ?: "",
                 lastAt = last?.createdAt ?: c.updatedAt,
                 muted = old?.muted ?: false, unread = old?.unread ?: 0,
+                // Hidden locally until a newer message shows up.
+                hiddenAt = old?.hiddenAt?.takeIf { it > 0 && (last?.createdAt ?: c.updatedAt) <= it } ?: 0,
             )
         }
         db.conversations().upsertAll(list)
@@ -243,11 +245,51 @@ class Repository(
     suspend fun startDirect(contact: ContactEntity): ConversationEntity = withContext(Dispatchers.IO) {
         val uid = contact.userId ?: error("This contact has no GroupMe account yet")
         val key = "d:$uid"
-        db.conversations().get(key) ?: ConversationEntity(
+        db.conversations().get(key)?.let { existing ->
+            if (existing.hiddenAt == 0L) return@withContext existing
+            existing.copy(hiddenAt = 0).also { db.conversations().upsertAll(listOf(it)) }
+        } ?: ConversationEntity(
             convKey = key, type = DM, targetId = uid,
             name = contact.name.ifBlank { "Direct chat" }, imageUrl = contact.imageUrl,
             lastText = "", lastAt = 0,
         ).also { db.conversations().upsertAll(listOf(it)) }
+    }
+
+    // ------------------------------------------------ leaving / deleting
+
+    private suspend fun removeLocal(key: String) {
+        db.conversations().delete(key)
+        db.messages().deleteFor(key)
+        androidx.core.app.NotificationManagerCompat.from(ctx).cancel(key.hashCode())
+    }
+
+    /**
+     * Groups: leave (or, creator only, delete for everyone). Direct chats: GroupMe's API has no way to delete
+     * them, so they are hidden in this app until a newer message arrives.
+     */
+    suspend fun removeConversation(c: ConversationEntity, forEveryone: Boolean) = withContext(Dispatchers.IO) {
+        if (c.type == DM) {
+            db.conversations().hide(c.convKey, System.currentTimeMillis() / 1000)
+            db.messages().deleteFor(c.convKey)
+            androidx.core.app.NotificationManagerCompat.from(ctx).cancel(c.convKey.hashCode())
+        } else if (forEveryone) {
+            val r = api.destroyGroup(c.targetId)
+            when {
+                r.code() == 403 || r.code() == 401 -> error("Only the group's creator can delete it for everyone.")
+                r.code() == 404 || r.code() == 405 -> error("GroupMe doesn't allow deleting this group from the API. Leave it instead.")
+                !r.isSuccessful -> throw HttpException(r)
+            }
+            removeLocal(c.convKey)
+        } else {
+            val g = api.group(c.targetId).response ?: error("Could not load the group")
+            if (g.creatorUserId != null && g.creatorUserId == myId) {
+                error("You created this group, so you can't leave it. Delete it for everyone instead.")
+            }
+            val membershipId = g.members.firstOrNull { it.userId == myId }?.id ?: error("Could not find your membership")
+            val r = api.removeMember(c.targetId, membershipId)
+            if (!r.isSuccessful) throw HttpException(r)
+            removeLocal(c.convKey)
+        }
     }
 
     // ------------------------------------------------------ contacts

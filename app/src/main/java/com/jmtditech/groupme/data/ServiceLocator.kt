@@ -37,6 +37,7 @@ object ServiceLocator {
         appContext = ctx.applicationContext
         prefs = Prefs(appContext)
         db = Room.databaseBuilder(appContext, AppDatabase::class.java, "groupme.db")
+            .addMigrations(MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
 

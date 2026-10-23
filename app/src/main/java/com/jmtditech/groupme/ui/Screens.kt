@@ -6,7 +6,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,6 +52,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -158,6 +165,8 @@ fun ConversationListScreen(
     val ctx = LocalContext.current
     val convs by vm.conversations.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
+    val removing by vm.removing.collectAsStateWithLifecycle()
+    var toDelete by remember { mutableStateOf<ConversationEntity?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
     val firstRow = remember { FocusRequester() }
@@ -178,6 +187,15 @@ fun ConversationListScreen(
             delay(150)
             runCatching { firstRow.requestFocus() }
         }
+    }
+
+    toDelete?.let { c ->
+        DeleteDialog(
+            conv = c,
+            busy = removing,
+            onDismiss = { toDelete = null },
+            onConfirm = { forEveryone -> vm.remove(c, forEveryone) { toDelete = null } },
+        )
     }
 
     Scaffold(
@@ -202,6 +220,7 @@ fun ConversationListScreen(
                     ConversationRow(
                         c,
                         if (i == 0) Modifier.focusRequester(firstRow) else Modifier,
+                        onDelete = { toDelete = c },
                     ) { onOpen(c.convKey) }
                 }
             }
@@ -209,15 +228,23 @@ fun ConversationListScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ConversationRow(c: ConversationEntity, modifier: Modifier, onClick: () -> Unit) {
+private fun ConversationRow(c: ConversationEntity, modifier: Modifier, onDelete: () -> Unit, onClick: () -> Unit) {
     val ctx = LocalContext.current
     val compact = LocalCompact.current
     Row(
         modifier = modifier
             .fillMaxWidth()
             .focusRing()
-            .clickable(onClick = onClick)
+            // On a D-pad phone the Clear / Delete key asks to remove the focused chat; touch: long-press.
+            .onPreviewKeyEvent { ev ->
+                if (ev.type == KeyEventType.KeyDown && (ev.key == Key.Backspace || ev.key == Key.Delete || ev.key == Key.Clear)) {
+                    onDelete()
+                    true
+                } else false
+            }
+            .combinedClickable(onClick = onClick, onLongClick = onDelete)
             .padding(horizontal = if (compact) 6.dp else 16.dp, vertical = if (compact) 4.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -19,6 +19,17 @@ interface GroupMeApi {
     suspend fun chats(@Query("page") page: Int, @Query("per_page") perPage: Int): Envelope<List<ChatDto>>
 
     /** 304 (no body) means "nothing new" when after_id is used. */
+    @GET("groups/{id}")
+    suspend fun group(@Path("id") id: String): Envelope<GroupDto>
+
+    /** Leaving a group = removing your own membership. The creator can't leave. */
+    @POST("groups/{id}/members/{membershipId}/remove")
+    suspend fun removeMember(@Path("id") id: String, @Path("membershipId") membershipId: String): Response<Unit>
+
+    /** Disbands a group (creator only). No longer listed in GroupMe's docs, so treated as best effort. */
+    @POST("groups/{id}/destroy")
+    suspend fun destroyGroup(@Path("id") id: String): Response<Unit>
+
     @POST("groups")
     suspend fun createGroup(@Body body: CreateGroupBody): Envelope<GroupDto>
 

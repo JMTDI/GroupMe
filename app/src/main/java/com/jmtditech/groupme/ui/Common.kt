@@ -186,13 +186,13 @@ fun PadButton(
 ) {
     val shape = RoundedCornerShape(8.dp)
     val scheme = MaterialTheme.colorScheme
-    val bg = if (primary) scheme.primary else Color.Transparent
+    val bg = if (primary) scheme.primary.copy(alpha = if (enabled) 1f else 0.4f) else Color.Transparent
     val fg = if (primary) scheme.onPrimary else scheme.primary
     Box(
         modifier
             .heightIn(min = 30.dp)
             .clip(shape)
-            .background(bg.copy(alpha = if (enabled) 1f else 0.4f))
+            .background(bg)
             .border(1.dp, if (primary) Color.Transparent else scheme.primary, shape)
             .focusRing(shape)
             .clickable(enabled = enabled, onClick = onClick)

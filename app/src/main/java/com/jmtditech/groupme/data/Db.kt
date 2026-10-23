@@ -10,6 +10,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 /** type 0 = group (convKey "g:<groupId>"), type 1 = direct chat (convKey "d:<otherUserId>"). */
@@ -24,6 +26,8 @@ data class ConversationEntity(
     val lastAt: Long,
     val muted: Boolean = false,
     val unread: Int = 0,
+    /** Direct chats can only be hidden locally; > 0 means hidden until a newer message arrives. */
+    val hiddenAt: Long = 0,
 )
 
 /**
@@ -64,7 +68,7 @@ data class MessageEntity(
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations ORDER BY lastAt DESC")
+    @Query("SELECT * FROM conversations WHERE hiddenAt = 0 ORDER BY lastAt DESC")
     fun observeAll(): Flow<List<ConversationEntity>>
 
     @Query("SELECT * FROM conversations WHERE convKey = :key")
@@ -88,7 +92,14 @@ interface ConversationDao {
     @Query("UPDATE conversations SET muted = :muted WHERE convKey = :key")
     suspend fun setMuted(key: String, muted: Boolean)
 
-    @Query("UPDATE conversations SET lastText = :text, lastAt = :at, unread = unread + :inc WHERE convKey = :key AND :at >= lastAt")
+    @Query("UPDATE conversations SET unread = 0, hiddenAt = :at WHERE convKey = :key")
+    suspend fun hide(key: String, at: Long)
+
+    @Query("DELETE FROM conversations WHERE convKey = :key")
+    suspend fun delete(key: String)
+
+    // A newer message also un-hides a locally hidden direct chat.
+    @Query("UPDATE conversations SET lastText = :text, lastAt = :at, unread = unread + :inc, hiddenAt = CASE WHEN :at > hiddenAt THEN 0 ELSE hiddenAt END WHERE convKey = :key AND :at >= lastAt")
     suspend fun bump(key: String, text: String, at: Long, inc: Int)
 }
 
@@ -124,6 +135,9 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(list: List<MessageEntity>)
 
+    @Query("DELETE FROM messages WHERE convKey = :key")
+    suspend fun deleteFor(key: String)
+
     @Query("UPDATE messages SET likedBy = :likedBy WHERE id = :id")
     suspend fun setLikes(id: String, likedBy: String)
 
@@ -131,9 +145,16 @@ interface MessageDao {
     suspend fun search(q: String): List<MessageEntity>
 }
 
-@Database(entities = [ConversationEntity::class, MessageEntity::class, ContactEntity::class], version = 3, exportSchema = false)
+@Database(entities = [ConversationEntity::class, MessageEntity::class, ContactEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun conversations(): ConversationDao
     abstract fun messages(): MessageDao
     abstract fun contacts(): ContactDao
+}
+
+/** v3 -> v4: locally hidden direct chats. Keeps everything else, including saved contacts. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE conversations ADD COLUMN hiddenAt INTEGER NOT NULL DEFAULT 0")
+    }
 }

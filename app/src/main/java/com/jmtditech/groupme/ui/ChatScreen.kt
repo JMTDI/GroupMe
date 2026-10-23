@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -98,6 +99,8 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
     var image by remember { mutableStateOf<Uri?>(null) }
     var selected by remember { mutableStateOf<MessageEntity?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val removing by vm.removing.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val newestFocus = remember { FocusRequester() }
@@ -161,6 +164,7 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
                     if (muted) "Unmute" else "Mute",
                     { vm.toggleMute() },
                 )
+                PadIcon(Icons.Default.Delete, "Delete", { confirmDelete = true })
             })
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -284,6 +288,17 @@ fun ChatScreen(convKey: String, onBack: () -> Unit) {
                     )
                 }
             }
+        }
+    }
+
+    if (confirmDelete) {
+        (conv)?.let { c ->
+            DeleteDialog(
+                conv = c,
+                busy = removing,
+                onDismiss = { confirmDelete = false },
+                onConfirm = { forEveryone -> vm.remove(forEveryone) { confirmDelete = false; onBack() } },
+            )
         }
     }
 

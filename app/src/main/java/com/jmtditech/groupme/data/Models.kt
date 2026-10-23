@@ -36,6 +36,8 @@ data class GroupMsgInfo(
 
 @Serializable
 data class MemberDto(
+    /** Membership id (not the user id); needed to remove a member / leave a group. */
+    val id: String? = null,
     @SerialName("user_id") val userId: String,
     val nickname: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
@@ -46,6 +48,7 @@ data class GroupDto(
     val id: String,
     val name: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("creator_user_id") val creatorUserId: String? = null,
     @SerialName("created_at") val createdAt: Long = 0,
     @SerialName("updated_at") val updatedAt: Long = 0,
     val messages: GroupMsgInfo? = null,
